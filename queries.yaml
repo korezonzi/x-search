@@ -1,0 +1,39 @@
+queries:
+  # X articles (full-text retrieval target)
+  - tag: cc_article_en
+    query: 'url:x.com/i/article "Claude Code" min_faves:1000 -filter:replies'
+    type: article
+
+  - tag: cc_article_ja
+    query: 'url:x.com/i/article "Claude Code" min_faves:300 -filter:replies'
+    type: article
+
+  # Hooks / tool-use patterns
+  - tag: cc_hooks
+    query: '"Claude Code" (hooks OR PostToolUse OR PreToolUse) min_faves:300 -filter:replies'
+    type: tweet
+
+  # Skills and slash commands
+  - tag: cc_skills
+    query: '"Claude Code" (skill OR "SKILL.md" OR "slash command") min_faves:300 -filter:replies'
+    type: tweet
+
+  # CLAUDE.md / system prompt / rules
+  - tag: cc_prompt
+    query: '"Claude Code" ("CLAUDE.md" OR "system prompt" OR rules) min_faves:300 -filter:replies'
+    type: tweet
+
+  # Multi-agent patterns
+  - tag: cc_agents
+    query: '"Claude Code" (subagent OR "multi-agent" OR orchestrat) min_faves:300 -filter:replies'
+    type: tweet
+
+  # Cost / token optimization
+  - tag: cc_cost
+    query: '"Claude Code" (cost OR token OR "context window" OR model) min_faves:200 -filter:replies'
+    type: tweet
+
+  # Japanese tips & usage
+  - tag: cc_general_ja
+    query: '"Claude Code" (コツ OR Tips OR 設定 OR 効率 OR 使い方) min_faves:100 -filter:replies'
+    type: tweet
