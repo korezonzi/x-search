@@ -1,21 +1,21 @@
 queries:
   # X articles (full-text retrieval target)
   - tag: cc_article_en
-    query: 'url:x.com/i/article "Claude Code" min_faves:1000 -filter:replies'
+    query: 'url:x.com/i/article "Claude Code" min_faves:300 -filter:replies'
     type: article
 
   - tag: cc_article_ja
-    query: 'url:x.com/i/article "Claude Code" min_faves:300 -filter:replies'
+    query: 'url:x.com/i/article "Claude Code" min_faves:100 -filter:replies'
     type: article
 
   # Hooks / tool-use patterns
   - tag: cc_hooks
-    query: '"Claude Code" (hooks OR PostToolUse OR PreToolUse) min_faves:300 -filter:replies'
+    query: '"Claude Code" (hooks OR PostToolUse OR PreToolUse OR "if conditions") min_faves:300 -filter:replies'
     type: tweet
 
   # Skills and slash commands
   - tag: cc_skills
-    query: '"Claude Code" (skill OR "SKILL.md" OR "slash command") min_faves:300 -filter:replies'
+    query: '"Claude Code" ("SKILL.md" OR "/install" OR "slash command") min_faves:300 -filter:replies'
     type: tweet
 
   # CLAUDE.md / system prompt / rules
@@ -36,4 +36,19 @@ queries:
   # Japanese tips & usage
   - tag: cc_general_ja
     query: '"Claude Code" (コツ OR Tips OR 設定 OR 効率 OR 使い方) min_faves:100 -filter:replies'
+    type: tweet
+
+  # New feature / update announcements
+  - tag: cc_updates
+    query: '"Claude Code" ("now supports" OR "just shipped" OR "introducing" OR "new feature") min_faves:500 -filter:replies'
+    type: tweet
+
+  # bcherny (CC author) official posts
+  - tag: cc_official
+    query: 'from:bcherny "Claude Code" min_faves:100'
+    type: tweet
+
+  # Japanese hooks / automation
+  - tag: cc_hooks_ja
+    query: '"Claude Code" (フック OR hook OR hooks OR 自動化) min_faves:50 -filter:replies lang:ja'
     type: tweet

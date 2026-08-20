@@ -40,18 +40,28 @@ def render_apply_section(items: list[EvalResult]) -> str:
 
     lines: list[str] = []
     for i, r in enumerate(items, 1):
+        section_note = f" § `{r.target_section}`" if r.target_section else ""
         lines.append(f"### [{i}] {r.title}")
-        lines.append(f"- スコア: **{r.total_score:.2f}** | タグ: `{r.tag}`")
-        lines.append(f"- 適用先: `{r.target_file}`")
+        lines.append(f"- スコア: **{r.total_score:.2f}** | タグ: `{r.tag}` | ContentType: `{r.content_type}`")
+        lines.append(f"- 適用先: `{r.target_file}`{section_note}")
+        lines.append(f"- ガバナンス根拠: {r.governance_rationale}")
         lines.append(f"- 元投稿: {r.url}")
         lines.append(f"- エンゲージメント: {format_engagement(r)}")
-        lines.append(f"- 要約: {r.summary[:200]}")
+        lines.append("")
+        lines.append("**抽出した洞察:**")
+        lines.append("")
+        lines.append(f"> {r.actionable_insight[:400]}")
         lines.append("")
         lines.append("**変更提案:**")
         lines.append("")
         lines.append("```diff")
         lines.append(r.diff_proposal)
         lines.append("```")
+        lines.append("")
+        lines.append(
+            "> **適用方法**: Opus モデル (`/model opus`) + Plan Mode (Option+P) で対象ファイルを開き、"
+            "全体最適化しながら挿入してください。生ツイートではなく「抽出した洞察」のみを使用すること。"
+        )
         lines.append("")
         lines.append("---")
         lines.append("")
@@ -65,9 +75,16 @@ def render_hold_section(items: list[EvalResult]) -> str:
     lines: list[str] = []
     for i, r in enumerate(items, 1):
         lines.append(f"### [{i}] {r.title}")
-        lines.append(f"- スコア: {r.total_score:.2f} | タグ: `{r.tag}`")
+        lines.append(
+            f"- スコア: {r.total_score:.2f} | "
+            f"e={r.score_engagement:.2f} sp={r.score_specificity:.2f} "
+            f"al={r.score_alignment:.2f} nv={r.score_novelty:.2f} fr={r.score_freshness:.2f} | "
+            f"タグ: `{r.tag}` | ContentType: `{r.content_type}`"
+        )
+        lines.append(f"- 適用先: `{r.target_file}`")
         lines.append(f"- 元投稿: {r.url}")
-        lines.append(f"- 要約: {r.summary[:150]}")
+        lines.append("")
+        lines.append(f"> {r.actionable_insight[:400]}")
         lines.append("")
     return "\n".join(lines)
 
@@ -84,6 +101,10 @@ def generate_report(results: list[EvalResult], call_count: int | None = None) ->
 
     lines: list[str] = [
         f"# Claude Code Best Practice Report {today}",
+        "",
+        "> **適用ガイドライン**: このレポートは提案のみです。実際の適用は人間が行ってください。",
+        "> 各提案を適用する際は `/model opus` + Plan Mode (Option+P) を使用し、",
+        "> 対象ファイル全体を読んで重複・矛盾を確認してから挿入してください。",
         "",
         f"## 適用候補 ({len(apply_items)}件)",
         "",

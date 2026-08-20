@@ -4,6 +4,22 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
+# Content type classification — maps tweet content to the correct ~/.claude/ target
+ContentType = Literal[
+    "behavioral_rule",    # Universal behavioral principle → CLAUDE.md (high threshold)
+    "domain_hooks",       # Hook patterns → rules/common/hooks.md
+    "domain_testing",     # TDD/coverage → rules/common/testing.md
+    "domain_security",    # OWASP/secrets → rules/common/security.md
+    "domain_agents",      # Multi-agent/subagent → rules/common/agents.md
+    "domain_performance", # Model selection/cost → rules/common/performance.md
+    "domain_git",         # Commit/PR workflow → rules/common/git-workflow.md
+    "domain_workflow",    # Feature pipeline → rules/common/development-workflow.md
+    "domain_coding",      # Coding style/immutability → rules/common/coding-style.md
+    "workflow",           # Multi-step reusable procedure → skills/
+    "general_knowledge",  # Reference facts/tips → knowledge/claude-code-best-practices.md
+    "discard",            # Should not be applied anywhere
+]
+
 
 @dataclass
 class TweetRecord:
@@ -56,3 +72,8 @@ class EvalResult:
     frozen_conflict: bool = False
     full_text: str = ""
     raw_labels: list[str] = field(default_factory=list)
+    # Governance-aware fields
+    content_type: str = "general_knowledge"
+    target_section: str = ""
+    governance_rationale: str = ""
+    actionable_insight: str = ""

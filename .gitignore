@@ -1,6 +1,7 @@
 .env
 cache/
 output/
+logs/
 __pycache__/
 *.pyc
 *.pyo

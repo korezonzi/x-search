@@ -7,10 +7,12 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 CACHE_DIR = BASE_DIR / "cache"
 OUTPUT_DIR = BASE_DIR / "output"
+LOGS_DIR = BASE_DIR / "logs"
 QUERIES_FILE = BASE_DIR / "queries.yaml"
 
 CACHE_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
+LOGS_DIR.mkdir(exist_ok=True)
 
 # SocialData API
 SOCIALDATA_BASE_URL = "https://api.socialdata.tools"
@@ -25,11 +27,11 @@ REQUEST_TIMEOUT_SECONDS = 30
 SCORE_APPLY = 0.70
 SCORE_HOLD = 0.40
 
-# Engagement normalization
-ENGAGEMENT_NORMALIZATION_LIKES = 5000
-ENGAGEMENT_NORMALIZATION_RT = 1000
-ENGAGEMENT_NORMALIZATION_BM = 500
-ENGAGEMENT_NORMALIZATION_VIEWS = 100000
+# Engagement normalization (calibrated to real data: max ~1122 likes, ~30k views)
+ENGAGEMENT_NORMALIZATION_LIKES = 1000
+ENGAGEMENT_NORMALIZATION_RT = 300
+ENGAGEMENT_NORMALIZATION_BM = 150
+ENGAGEMENT_NORMALIZATION_VIEWS = 30000
 
 # Freshness: days
 FRESHNESS_MAX_DAYS = 365
@@ -42,7 +44,7 @@ FROZEN_DECISIONS = [
     "immutability",
 ]
 
-# Tag → target file mapping
+# Tag → target file mapping (fallback; ContentType-based routing takes precedence)
 TAG_TO_TARGET: dict[str, str] = {
     "cc_hooks": "~/.claude/rules/common/hooks.md",
     "cc_skills": "~/.claude/skills/",
@@ -53,3 +55,6 @@ TAG_TO_TARGET: dict[str, str] = {
     "cc_article_ja": "~/.claude/knowledge/claude-code-best-practices.md",
     "cc_general_ja": "~/.claude/knowledge/claude-code-best-practices.md",
 }
+
+# Score penalty multiplier when target is CLAUDE.md (high threshold)
+CLAUDE_MD_SCORE_PENALTY = 0.7
