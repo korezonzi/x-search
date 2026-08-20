@@ -1,0 +1,90 @@
+# X watch list for `xq.py watch` — accounts + saved keyword searches
+#
+# Design (2026-08-08, rev2):
+# - This file is now the SINGLE aggregation point for X monitoring.
+#   The n8n "Daily AI Digest" workflow was DEACTIVATED on 2026-08-08 and its
+#   news lens (official/company accounts) was absorbed here.
+# - Accounts: people/orgs whose posts matter even at low engagement, plus the
+#   official news channels formerly covered by n8n.
+# - Searches: daily diff (since last run), sorted by engagement, limit_per_search each.
+#   Vocabulary freshness: cc-evolve weekly (new-term detection -> proposal) and
+#   monthly audit (dead/high-noise queries via output/excluded-*.json). Manual rule
+#   of thumb stays: review frontier_* quarterly (buzzwords rot).
+# - Cadence: launchd com.fuma.x-watch runs DAILY at 08:47 JST.
+defaults:
+  limit_per_handle: 10
+  # 2026-08-20: 15->25 — LLM filter prunes downstream, so show more pre-filter candidates
+  limit_per_search: 25
+
+handles:
+  - handle: AnthropicAI
+    note: "Anthropic official — every post matters"
+  - handle: claudeai
+    note: "Claude official"
+  - handle: bcherny
+    note: "Claude Code creator — replies contain CC internals"
+  - handle: alexalbert__
+    note: "Anthropic DevRel"
+  - handle: karpathy
+    note: "AI coding workflow insights — n8n's news filter would drop these"
+  - handle: mattshumer_
+    note: "AI agents / coding practice — same reason as karpathy"
+  # --- News lens (absorbed from retired n8n Daily AI Digest) ---
+  - handle: OpenAI
+    note: "OpenAI official releases"
+  - handle: GoogleDeepMind
+    note: "DeepMind/Gemini official"
+  - handle: sama
+    note: "Sam Altman — previews/strategy"
+  - handle: gdb
+    note: "Greg Brockman — technical"
+  - handle: OfficialLoganK
+    note: "Gemini DevRel"
+  - handle: jackclarkSF
+    note: "Anthropic co-founder — policy/model landscape"
+
+searches:
+  # --- (a) Claude Code: Skills / MCP / config / loop (CLAUDE.md etc.) ---
+  - name: cc_mcp_skills_en
+    query: '"claude code" (MCP OR skill OR skills OR plugin OR marketplace OR "agent harness" OR "loop engineering" OR subagent) min_faves:200 -filter:replies'
+    note: "CC ecosystem: skills/MCP/plugins/subagents (EN). 2026-08-19: added agent harness / loop engineering / subagent (Anthropic loop paradigm, 2026-06)."
+  - name: cc_config_en
+    query: '("CLAUDE.md" OR "AGENTS.md" OR "settings.json" OR ".claude") min_faves:250 -filter:replies'
+    note: "config-file tokens are distinctive. min_faves 100->250 on 2026-08-10: was hitting MAX_PAGES every run. 2026-08-19 observation (no change): 4-6割が.claude token誤マッチのバイラルClaude言及の疑い。PROBE推奨: '.claude'を外し3ファイル名のみで比較。"
+  - name: cc_ja
+    query: '"Claude Code" (スキル OR MCP OR 設定 OR フック OR エージェント OR ループエンジニアリング OR "/goal" OR "/loop") min_faves:50 lang:ja -filter:replies'
+    note: "JA volume is lower — threshold 50. 2026-08-19: ループエンジニアリング//goal//loop追加（JA技術ブログで現役の先取り。digest未観測なのでREVIEW 2週間）。"
+  # --- (b) Business efficiency / automation ---
+  - name: biz_auto_ja
+    query: '(AI OR Claude OR ChatGPT OR AIエージェント) (自動化 OR 業務効率化 OR 仕組み化) min_faves:300 lang:ja -filter:replies -政治 -国会 -選挙'
+    note: "JA business automation cases. 2026-08-19: AIエージェント追加＋-政治 -国会 -選挙（8/19に政治スレッド誤ヒット観測）。REVIEW 2週間。"
+  - name: biz_agent_en
+    query: '("AI agent" OR "AI agents" OR "agentic AI") (business OR workflow OR automation OR ops OR enterprise OR ROI) min_faves:400 -filter:replies -bitcoin -crypto'
+    note: "EN agent-in-business. 2026-08-19: フレーズ拡張＋min_faves 800->400（8/15,17,19の3日連続新着なし＝狭すぎ）。2026-08-20プローブ: crypto系混入を観測し -bitcoin -crypto 追加。REVIEW 2週間: まだ薄ければ250へ。"
+  - name: biz_tooling
+    query: '(n8n OR Zapier OR "make.com" OR Dify OR Lindy OR Gumloop) (AI OR agent OR 活用) min_faves:200 -filter:replies'
+    note: "automation tooling case studies. 2026-08-19: Lindy/Gumloop追加（2026年no-code AIエージェントビルダー比較の常連化を確認）。"
+  # --- (c) Next-gen usage early catch-up ---
+  - name: frontier_en
+    query: '(agentic OR "context engineering" OR "agentic engineering" OR "spec-driven development" OR "agent harness" OR "loop engineering" OR "forward deployed engineer" OR "vibe coding" OR "AI-first") min_faves:1000 -filter:replies'
+    note: "paradigm vocabulary — REVIEW QUARTERLY. 2026-08-19更新: agentic engineering（Karpathyのvibe coding後継語）/spec-driven/agent harness/loop engineering/FDE追加。OR9項でMAX_PAGES化したら語彙を削る前にmin_faves 1200へ。"
+  - name: frontier_viral
+    query: '(Claude OR ChatGPT OR Gemini) min_faves:5000 lang:en -filter:replies -politics -election -war'
+    note: "safety net: only viral posts pass 5000. 未知の新語はここが拾うため語彙は広いまま維持。2026-08-19: -politics -election -war追加（政治系バイラル通過を観測）。"
+  - name: frontier_ja
+    query: '(AIエージェント OR "AI活用" OR ループエンジニアリング OR "コンテキストエンジニアリング" OR "スペック駆動開発" OR "フォワードデプロイドエンジニア") min_faves:300 lang:ja -filter:replies -政治 -選挙 -炎上 -反AI'
+    note: "JA frontier insights. 2026-08-19全面書き換え: 「生成AI」を削除（8/15,17,19の13-15/15件が反AI感情・政治で、AI構築/活用の実話0件）。min_faves 500->300は磁石語削除による母数減の推定値。REVIEW 2週間: 薄すぎればさらに下げる。"
+  # --- AI news catch-all (covers orgs NOT in handles: Meta/Mistral/xAI etc.) ---
+  - name: ai_news_en
+    query: '(announcing OR introducing OR launching OR "now available") (AI OR model OR agent) min_faves:1500 lang:en -filter:replies -politics -election -war'
+    note: "big announcements from any org — absorbed n8n news lens. 2026-08-19: -politics -election -war追加（launching+AI共起の無関係投稿通過を観測）。語彙は汎用のまま維持。"
+  # --- (d) Life / relationships: career, learning habits, partnership — TRIAL axis ---
+  - name: life_career_ja
+    query: '(AI OR AIエージェント OR Claude OR ChatGPT) (キャリア OR 働き方 OR 転職 OR 副業) min_faves:1000 lang:ja -filter:replies -占い -スピリチュアル'
+    note: "TRIAL 2026-08-19導入。軸C-1: キャリア形成・働き方×AI。min_faves 1000は未検証推定（キャリア系はバズりやすいため高め）。REVIEW 2週間: excludedログ/新着なし率で存廃判断。"
+  - name: life_learning_ja
+    query: '(AI OR AIエージェント OR Claude OR ChatGPT) (習慣化 OR 学び方 OR インプット OR アウトプット OR 読書術) min_faves:800 lang:ja -filter:replies'
+    note: "TRIAL 2026-08-19導入。軸C-2: 学び方・習慣化×AI。AND構造でAI無関係の自己啓発クラスタを回避。min_faves 800は未検証推定。REVIEW 2週間。"
+  - name: life_relationship_ja
+    query: '(AI OR ChatGPT OR Claude) ("夫婦関係" OR "夫婦の会話" OR "パートナーとの関係" OR 家事分担 OR 育児分担) min_faves:300 lang:ja -filter:replies -出会い -マッチングアプリ -占い -復縁 -提携'
+    note: "TRIAL 2026-08-19導入。軸C-3: パートナー関係性×AI。2026-08-20プローブ2回修正: パートナーシップ系→企業提携に支配、夫婦/恋人単体→アニメ・ニュース・ファンダムに支配。生活実務系（家事分担・育児分担・夫婦の会話）に絞り min_faves 300 へ。REVIEW 2週間: それでもノイズ優勢なら廃止し、LLMフィルタ軸C-3の拾い残しに委ねる。"

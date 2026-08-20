@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  com.fuma.x-watch.plist.template
+
+  Daily `xq.py watch` run — every day at 08:47 JST (local time).
+  StartCalendarInterval fires in the Mac's system local time; this assumes
+  the system time zone is Asia/Tokyo.
+
+  This is a TEMPLATE and is NOT registered automatically. A human must
+  install it:
+
+    cp /Users/fuma/dev/ai-setup/x-search/launchd/com.fuma.x-watch.plist.template \
+       ~/Library/LaunchAgents/com.fuma.x-watch.plist
+    launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.fuma.x-watch.plist
+
+  To uninstall:
+
+    launchctl bootout gui/$UID/com.fuma.x-watch
+    rm ~/Library/LaunchAgents/com.fuma.x-watch.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fuma.x-watch</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/fuma/dev/ai-setup/x-search/scripts/x-watch-cron.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>47</integer>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/fuma/dev/ai-setup/x-search</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/fuma/dev/ai-setup/x-search/logs/x-watch-launchd.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/fuma/dev/ai-setup/x-search/logs/x-watch-launchd.err.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
