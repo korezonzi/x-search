@@ -46,11 +46,11 @@ handles:
 searches:
   # --- (a) Claude Code: Skills / MCP / config / loop (CLAUDE.md etc.) ---
   - name: cc_mcp_skills_en
-    query: '"claude code" (MCP OR skill OR skills OR plugin OR marketplace OR "agent harness" OR "loop engineering" OR subagent) min_faves:200 -filter:replies'
-    note: "CC ecosystem: skills/MCP/plugins/subagents (EN). 2026-08-19: added agent harness / loop engineering / subagent (Anthropic loop paradigm, 2026-06)."
+    query: '"claude code" (MCP OR skill OR skills OR plugin OR marketplace OR "agent harness" OR "loop engineering" OR subagent OR "/goal" OR Cowork) min_faves:200 -filter:replies'
+    note: "CC ecosystem: skills/MCP/plugins/subagents (EN). 2026-08-19: added agent harness / loop engineering / subagent. 2026-08-26: /goal追加（\"claude code\"アンカーがあるためgoal一般語のノイズは出ない）・Cowork追加（統合メモリ発表で登場。アンカー付きなので単独言及は拾えないが、バイラルはfrontier_viralが補完。REVIEW 2週間: 新着ゼロなら削除）。"
   - name: cc_config_en
-    query: '("CLAUDE.md" OR "AGENTS.md" OR "settings.json" OR ".claude") min_faves:250 -filter:replies'
-    note: "config-file tokens are distinctive. min_faves 100->250 on 2026-08-10: was hitting MAX_PAGES every run. 2026-08-19 observation (no change): 4-6割が.claude token誤マッチのバイラルClaude言及の疑い。PROBE推奨: '.claude'を外し3ファイル名のみで比較。"
+    query: '("CLAUDE.md" OR "AGENTS.md" OR "settings.json" OR worktreeinclude) min_faves:250 -filter:replies'
+    note: "config-file tokens are distinctive. min_faves 100->250 on 2026-08-10. 2026-08-26: PROBE実施（.claude外し25件実測）で関連率15%→約70%を確認し '.claude' を削除（バイラルClaude言及の誤マッチ源だった）。worktreeinclude追加（CC 2.1.231ネイティブ機能名）。REVIEW 2週間: 新着が細りすぎたら min_faves 200 へ。"
   - name: cc_ja
     query: '"Claude Code" (スキル OR MCP OR 設定 OR フック OR エージェント OR ループエンジニアリング OR "/goal" OR "/loop") min_faves:50 lang:ja -filter:replies'
     note: "JA volume is lower — threshold 50. 2026-08-19: ループエンジニアリング//goal//loop追加（JA技術ブログで現役の先取り。digest未観測なのでREVIEW 2週間）。"
@@ -81,10 +81,10 @@ searches:
   # --- (d) Life / relationships: career, learning habits, partnership — TRIAL axis ---
   - name: life_career_ja
     query: '(AI OR AIエージェント OR Claude OR ChatGPT) (キャリア OR 働き方 OR 転職 OR 副業) min_faves:1000 lang:ja -filter:replies -占い -スピリチュアル'
-    note: "TRIAL 2026-08-19導入。軸C-1: キャリア形成・働き方×AI。min_faves 1000は未検証推定（キャリア系はバズりやすいため高め）。REVIEW 2週間: excludedログ/新着なし率で存廃判断。"
+    note: "TRIAL 2026-08-19導入。軸C-1: キャリア形成・働き方×AI。min_faves 1000は未検証推定（キャリア系はバズりやすいため高め）。REVIEW 2週間: excludedログ/新着なし率で存廃判断。2026-08-26実績確認: 8/20・21・23にKEEPエントリあり=生存。9/2レビュー継続。"
   - name: life_learning_ja
     query: '(AI OR AIエージェント OR Claude OR ChatGPT) (習慣化 OR 学び方 OR インプット OR アウトプット OR 読書術) min_faves:800 lang:ja -filter:replies'
-    note: "TRIAL 2026-08-19導入。軸C-2: 学び方・習慣化×AI。AND構造でAI無関係の自己啓発クラスタを回避。min_faves 800は未検証推定。REVIEW 2週間。"
-  - name: life_relationship_ja
-    query: '(AI OR ChatGPT OR Claude) ("夫婦関係" OR "夫婦の会話" OR "パートナーとの関係" OR 家事分担 OR 育児分担) min_faves:300 lang:ja -filter:replies -出会い -マッチングアプリ -占い -復縁 -提携'
-    note: "TRIAL 2026-08-19導入。軸C-3: パートナー関係性×AI。2026-08-20プローブ2回修正: パートナーシップ系→企業提携に支配、夫婦/恋人単体→アニメ・ニュース・ファンダムに支配。生活実務系（家事分担・育児分担・夫婦の会話）に絞り min_faves 300 へ。REVIEW 2週間: それでもノイズ優勢なら廃止し、LLMフィルタ軸C-3の拾い残しに委ねる。"
+    note: "TRIAL 2026-08-19導入。軸C-2: 学び方・習慣化×AI。AND構造でAI無関係の自己啓発クラスタを回避。min_faves 800は未検証推定。REVIEW 2週間。2026-08-26実績確認: 8/20・23にKEEPエントリあり=生存。9/2レビュー継続。"
+  # life_relationship_ja は2026-08-26に廃止（evolve-2026-08-25 候補6・✅承認済み）。
+  # 根拠: 8/20-25の6運用日すべて新着ゼロ（プローブ2回修正後も）。軸C-3自体は
+  # LLMフィルタの判定軸として存続しており、frontier_viral等が拾った投稿はKEEPされる。
