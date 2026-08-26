@@ -575,6 +575,21 @@ def fetch_new_for_search(
     return _fetch_new_since(f"search:{name}", query, last_checked, max_pages)
 
 
+def _filter_displayed(tweets: list[dict], limit: int, seen_ids: set[str]) -> list[dict]:
+    """Cross-section dedup: drop tweets already displayed by an earlier digest
+    section, then claim the IDs that will actually be shown (top `limit`) so
+    later sections skip them and other content fills their slots.
+
+    Tweets hidden behind the overflow cut are NOT claimed — they may still
+    surface in a later section. `tweets` must already be in display order.
+    A tweet without id_str is never claimed nor dropped (fail-open: it can
+    still appear in multiple sections).
+    """
+    fresh = [t for t in tweets if (t.get("id_str") or "") not in seen_ids]
+    seen_ids.update(tid for t in fresh[:limit] if (tid := t.get("id_str") or ""))
+    return fresh
+
+
 def _render_digest_section(heading: str, new_tweets: list[dict], limit: int) -> str:
     """Render one digest section: `heading` + up to `limit` entries (already
     in the desired display order), then an overflow summary line if truncated."""
@@ -589,9 +604,10 @@ def _render_digest_section(heading: str, new_tweets: list[dict], limit: int) -> 
     return f"{heading}\n{entries}"
 
 
-def _render_watch_section(handle: str, new_tweets: list[dict], limit: int) -> str:
+def _render_watch_section(handle: str, new_tweets: list[dict], limit: int, seen_ids: set[str]) -> str:
     """Render one handle's markdown section, truncated to `limit` entries."""
-    return _render_digest_section(f"## @{handle}", new_tweets, limit)
+    fresh = _filter_displayed(new_tweets, limit, seen_ids)
+    return _render_digest_section(f"## @{handle}", fresh, limit)
 
 
 def _search_heading(name: str, note: str | None) -> str:
@@ -599,14 +615,55 @@ def _search_heading(name: str, note: str | None) -> str:
     return f"## 🔍 {name}" + (f" — {note}" if note else "")
 
 
-def _render_search_section(name: str, note: str | None, new_tweets: list[dict], limit: int) -> str:
-    """Render one saved search's digest section: engagement-sorted, then
-    truncated to `limit` entries with an overflow summary line."""
+def _render_search_section(name: str, note: str | None, new_tweets: list[dict], limit: int, seen_ids: set[str]) -> str:
+    """Render one saved search's digest section: engagement-sorted, deduped
+    against earlier sections, then truncated to `limit` entries with an
+    overflow summary line."""
     ranked = sort_tweets(new_tweets, "engagement")
-    return _render_digest_section(_search_heading(name, note), ranked, limit)
+    fresh = _filter_displayed(ranked, limit, seen_ids)
+    return _render_digest_section(_search_heading(name, note), fresh, limit)
 
 
-def _watch_handle(handle: str, last_checked: str | None, limit: int) -> tuple[str, list[dict], int, int, bool]:
+SECTION_RETRY_BACKOFF_SECONDS = 60
+_retry_backoff_spent = False
+
+
+def _fetch_with_retry(fetch_fn):
+    """Retry one section fetch after a transient failure (2026-08-25: a local
+    DNS blip took out six consecutive handle sections in one run; the data was
+    recoverable seconds later). The backoff sleep is global-once per run — the
+    first failure waits SECTION_RETRY_BACKOFF_SECONDS, later sections retry
+    immediately — so an outage never adds more than one minute of wall clock.
+
+    Usage from the failed attempt (already billed by SocialData) is folded
+    into the retry's result, or into the re-raised FetchError, so the ledger
+    never loses billed pages. The failed attempt's partial tweets are dropped:
+    the retry re-fetches the same window (last_checked has not advanced).
+    """
+    global _retry_backoff_spent
+    try:
+        return fetch_fn()
+    except FetchError as first:
+        if not _retry_backoff_spent:
+            print(
+                f"WARNING: section fetch failed ({first}); retrying once after "
+                f"{SECTION_RETRY_BACKOFF_SECONDS}s backoff.",
+                file=sys.stderr,
+            )
+            time.sleep(SECTION_RETRY_BACKOFF_SECONDS)
+            _retry_backoff_spent = True
+        try:
+            tweets, api_calls, raw_count = fetch_fn()
+            return tweets, api_calls + first.api_calls, raw_count + first.raw_tweet_count
+        except FetchError as second:
+            second.api_calls += first.api_calls
+            second.raw_tweet_count += first.raw_tweet_count
+            raise
+
+
+def _watch_handle(
+    handle: str, last_checked: str | None, limit: int, seen_ids: set[str]
+) -> tuple[str, list[dict], int, int, bool]:
     """Process one watch.yaml handle: fetch new tweets and render its digest section.
 
     Returns (section_markdown, new_tweets, api_calls, raw_tweet_count, succeeded).
@@ -616,18 +673,20 @@ def _watch_handle(handle: str, last_checked: str | None, limit: int) -> tuple[st
     skip advancing that handle's last_checked timestamp (retry next run).
     """
     try:
-        new_tweets, api_calls, raw_tweet_count = fetch_new_for_handle(handle, last_checked)
+        new_tweets, api_calls, raw_tweet_count = _fetch_with_retry(
+            lambda: fetch_new_for_handle(handle, last_checked)
+        )
     except FetchError as e:
         return f"## @{handle}\n[error] {e}", [], e.api_calls, e.raw_tweet_count, False
     except Exception as e:  # isolate unexpected failures to this handle only
         return f"## @{handle}\n[error] unexpected failure: {e}", [], 0, 0, False
 
-    section = _render_watch_section(handle, new_tweets, limit)
+    section = _render_watch_section(handle, new_tweets, limit, seen_ids)
     return section, new_tweets, api_calls, raw_tweet_count, True
 
 
 def _watch_search(
-    name: str, query: str, note: str | None, last_checked: str | None, limit: int
+    name: str, query: str, note: str | None, last_checked: str | None, limit: int, seen_ids: set[str]
 ) -> tuple[str, list[dict], int, int, bool]:
     """Process one watch.yaml saved search: fetch new tweets and render its digest section.
 
@@ -637,13 +696,15 @@ def _watch_search(
     any failure, so the caller skips advancing that search's last_checked.
     """
     try:
-        new_tweets, api_calls, raw_tweet_count = fetch_new_for_search(name, query, last_checked)
+        new_tweets, api_calls, raw_tweet_count = _fetch_with_retry(
+            lambda: fetch_new_for_search(name, query, last_checked)
+        )
     except FetchError as e:
         return f"{_search_heading(name, note)}\n[error] {e}", [], e.api_calls, e.raw_tweet_count, False
     except Exception as e:  # isolate unexpected failures to this search only
         return f"{_search_heading(name, note)}\n[error] unexpected failure: {e}", [], 0, 0, False
 
-    section = _render_search_section(name, note, new_tweets, limit)
+    section = _render_search_section(name, note, new_tweets, limit, seen_ids)
     return section, new_tweets, api_calls, raw_tweet_count, True
 
 
@@ -683,7 +744,9 @@ def cmd_search(args: argparse.Namespace) -> None:
     print(f"saved: {output_path}")
 
 
-def _run_handle_watches(handles: list[Any], limit: int, state: dict[str, Any]) -> tuple[list[str], list[dict], int, int]:
+def _run_handle_watches(
+    handles: list[Any], limit: int, state: dict[str, Any], seen_ids: set[str]
+) -> tuple[list[str], list[dict], int, int]:
     """Process every watch.yaml handle entry, updating `state` in place.
 
     Returns (sections, new_tweets, api_calls, raw_tweet_count) aggregated
@@ -702,7 +765,7 @@ def _run_handle_watches(handles: list[Any], limit: int, state: dict[str, Any]) -
             continue
 
         last_checked = (state.get(handle) or {}).get("last_checked")
-        section, new_tweets, api_calls, raw_tweet_count, succeeded = _watch_handle(handle, last_checked, limit)
+        section, new_tweets, api_calls, raw_tweet_count, succeeded = _watch_handle(handle, last_checked, limit, seen_ids)
         sections.append(section)
         total_api_calls += api_calls
         total_raw_tweet_count += raw_tweet_count
@@ -713,7 +776,9 @@ def _run_handle_watches(handles: list[Any], limit: int, state: dict[str, Any]) -
     return sections, all_tweets, total_api_calls, total_raw_tweet_count
 
 
-def _run_search_watches(searches: list[Any], limit: int, state: dict[str, Any]) -> tuple[list[str], list[dict], int, int]:
+def _run_search_watches(
+    searches: list[Any], limit: int, state: dict[str, Any], seen_ids: set[str]
+) -> tuple[list[str], list[dict], int, int]:
     """Process every watch.yaml search entry, updating `state` in place
     (under the `search:{name}` key, namespaced apart from handle keys so the
     two never collide).
@@ -737,7 +802,7 @@ def _run_search_watches(searches: list[Any], limit: int, state: dict[str, Any]) 
 
         state_key = f"search:{name}"
         last_checked = (state.get(state_key) or {}).get("last_checked")
-        section, new_tweets, api_calls, raw_tweet_count, succeeded = _watch_search(name, query, note, last_checked, limit)
+        section, new_tweets, api_calls, raw_tweet_count, succeeded = _watch_search(name, query, note, last_checked, limit, seen_ids)
         sections.append(section)
         total_api_calls += api_calls
         total_raw_tweet_count += raw_tweet_count
@@ -762,8 +827,11 @@ def cmd_watch(args: argparse.Namespace) -> None:
     limit_per_search = defaults.get("limit_per_search") or DEFAULT_WATCH_LIMIT_PER_SEARCH
     state = load_watch_state()
 
-    handle_sections, handle_tweets, handle_calls, handle_raw = _run_handle_watches(handles, limit_per_handle, state)
-    search_sections, search_tweets, search_calls, search_raw = _run_search_watches(searches, limit_per_search, state)
+    # Shared across handles -> searches so a tweet is displayed at most once
+    # per digest (first section wins; watch.yaml order = priority order).
+    seen_ids: set[str] = set()
+    handle_sections, handle_tweets, handle_calls, handle_raw = _run_handle_watches(handles, limit_per_handle, state, seen_ids)
+    search_sections, search_tweets, search_calls, search_raw = _run_search_watches(searches, limit_per_search, state, seen_ids)
 
     all_tweets = handle_tweets + search_tweets
     record_usage(handle_raw + search_raw, handle_calls + search_calls)

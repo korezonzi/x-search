@@ -263,6 +263,14 @@ xq.py watch  →  x-watch-filter.py  →  notify (osascript, if new posts)  → 
   - Handles display in API (recency) order; searches display sorted by
     composite engagement score descending (see "Engagement scoring" above),
     with heading `## 🔍 {name}` (` — {note}` appended if given).
+  - **Cross-section dedup (2026-08-24)**: a tweet is displayed at most once
+    per digest. Handles render first and claim their displayed IDs, then
+    searches in watch.yaml order — so when the same tweet matches several
+    queries, the first (most specific) section keeps it and later sections
+    promote their next-ranked tweets into the freed slots. Only *displayed*
+    entries claim IDs: a tweet hidden behind one section's overflow cut can
+    still appear in a later section. The saved `output/xq-watch-*.json` is
+    NOT deduplicated (it archives everything fetched, per query).
   - State is tracked per entry in `logs/watch-state.json`: handles under
     their handle string, searches under `search:{name}` (namespaced so the
     two never collide). First run (no state for that entry) looks back 7
