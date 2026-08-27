@@ -13,23 +13,20 @@ Pipeline: copy digest into the Obsidian vault -> translate top posts to
 Japanese via `claude -p` (haiku; falls back to original text on any failure)
 -> post summary. Slack must never break the watch run. Never print secrets.
 
-Shared with x-watch-filter.py via x_watch_lib.py (sibling module in this
-same scripts/ directory): the digest-entry regex and the `claude -p`
-subprocess call.
+Shared with x-watch-filter.py and x-bookmarks.py via x_watch_lib.py (sibling
+module in this same scripts/ directory): the digest-entry regex, the
+`claude -p` subprocess call, config loading, and the Obsidian vault copy.
 """
 from __future__ import annotations
 
 import re
-import shutil
 import sys
-import urllib.parse
 from pathlib import Path
 
 import requests
 
 import x_watch_lib
 
-CONFIG_PATH = Path.home() / ".config" / "x-watch" / "env"
 WEBHOOK_KEY = "SLACK_WEBHOOK_URL_AI_NEWS"
 TOP_N = 5
 TEXT_HEAD_CHARS = 120
@@ -40,19 +37,6 @@ ENTRY_RE = x_watch_lib.ENTRY_RE
 SECTION_RE = re.compile(r"^## (.+)$")
 URL_RE = re.compile(r"^\s*(https://x\.com/\S+)$")
 ENTRY_LIKE_RE = re.compile(r"^\d+\. @", re.M)
-
-
-def load_config() -> dict[str, str]:
-    """Read KEY=VALUE lines from the config file; empty dict if unavailable."""
-    config: dict[str, str] = {}
-    try:
-        for line in CONFIG_PATH.read_text().splitlines():
-            if "=" in line and not line.lstrip().startswith("#"):
-                key, value = line.split("=", 1)
-                config[key.strip()] = value.strip()
-    except OSError:
-        pass
-    return config
 
 
 def parse_digest(md_text: str) -> tuple[list[dict], dict[str, int]]:
@@ -94,30 +78,6 @@ def parse_digest(md_text: str) -> tuple[list[dict], dict[str, int]]:
             elif line.startswith("   ") and not current["text"]:
                 current["text"] = line.strip()[:TEXT_HEAD_CHARS]
     return entries, section_counts
-
-
-def copy_to_vault(digest_path: Path, config: dict[str, str]) -> str | None:
-    """Copy the digest into the Obsidian vault; return an obsidian:// URI or None."""
-    vault_dir = config.get("VAULT_DIR")
-    vault_name = config.get("VAULT_NAME")
-    subdir = config.get("VAULT_SUBDIR", "00-inbox/x-watch")
-    if not vault_dir or not vault_name:
-        return None
-    try:
-        dest_dir = Path(vault_dir) / subdir
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / digest_path.name
-        shutil.copyfile(digest_path, dest)
-    except OSError as exc:
-        print(f"vault copy failed: {exc}", file=sys.stderr)
-        return None
-    note = f"{subdir}/{digest_path.stem}"
-    return (
-        "obsidian://open?vault="
-        + urllib.parse.quote(vault_name)
-        + "&file="
-        + urllib.parse.quote(note)
-    )
 
 
 def translate_snippets(texts: list[str]) -> list[str]:
@@ -196,8 +156,8 @@ def main() -> int:
     if not digest_path.is_file():
         print(f"digest not found: {digest_path}", file=sys.stderr)
         return 1
-    config = load_config()
-    obsidian_uri = copy_to_vault(digest_path, config)
+    config = x_watch_lib.load_config()
+    obsidian_uri = x_watch_lib.copy_to_vault(digest_path, config)
     webhook_url = config.get(WEBHOOK_KEY)
     if not webhook_url:
         print("slack webhook not configured; skipping post", file=sys.stderr)

@@ -52,3 +52,11 @@ fi
 # Post a Slack summary (optional — skips silently when no webhook is configured;
 # never fails the watch run).
 "${PYTHON_BIN}" "${SCRIPT_DIR}/x-watch-slack.py" "${OUTPUT_FILE}" 2>>logs/x-watch-cron.log || true
+
+# X bookmarks pipeline (real-Chrome CDP -> adhx -> haiku -> vault digest).
+# Placed last so its variable browser time can never delay the watch digest
+# that cc-evolve (09:17) depends on. Fail-open inside; `|| true` is the
+# second defense line. XBM_CDP_PORT selects the real-Chrome instance
+# (auto-launched by the script when the port is dead, e.g. after a reboot) —
+# x.com blocks HeadlessChrome logins, so the automation build is not usable.
+XBM_CDP_PORT=9222 "${PYTHON_BIN}" "${SCRIPT_DIR}/x-bookmarks.py" 2>>logs/x-watch-cron.log || true
